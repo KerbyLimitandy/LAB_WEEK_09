@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,7 +39,24 @@ import androidx.navigation.navArgument
 import com.example.lab_week_09.ui.theme.LAB_WEEK_09Theme
 import com.example.lab_week_09.ui.theme.OnBackgroundTitleText
 import com.example.lab_week_09.ui.theme.PrimaryTextButton
+import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
+private val moshi: Moshi = Moshi.Builder()
+    .add(KotlinJsonAdapterFactory())
+    .build()
+
+private val studentListType = Types.newParameterizedType(
+    List::class.java,
+    Student::class.java
+)
+
+private val studentListAdapter: JsonAdapter<List<Student>> =
+    moshi.adapter(studentListType)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,7 +123,16 @@ fun Home(navigateFromHomeToResult: (String) -> Unit) {
                 inputField.value = inputField.value.copy("")
             }
         },
-        { navigateFromHomeToResult(listData.toList().toString()) }
+        {
+            val jsonString = studentListAdapter.toJson(listData.toList())
+
+            val encodedJson = URLEncoder.encode(
+                jsonString,
+                StandardCharsets.UTF_8.name()
+            )
+
+            navigateFromHomeToResult(encodedJson)
+        }
     )
 }
 
@@ -161,13 +188,36 @@ fun HomeContent(
 
 @Composable
 fun ResultContent(listData: String) {
-    Column(
+    val studentList: List<Student> = remember(listData) {
+        try {
+            if (listData.isNotBlank()) {
+                studentListAdapter.fromJson(listData) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    LazyColumn(
         modifier = Modifier
-            .padding(vertical = 4.dp)
+            .padding(16.dp)
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        OnBackgroundTitleText(text = listData)
+        item {
+            OnBackgroundTitleText(text = "Student")
+        }
+
+        items(studentList) { student ->
+            Box(modifier = Modifier.padding(vertical = 4.dp)) {
+                OnBackgroundTitleText(
+                    text = student.name
+                )
+            }
+        }
     }
 }
 
